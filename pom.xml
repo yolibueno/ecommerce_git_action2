@@ -8,7 +8,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.4.4</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
 
     <groupId>com.rah.demo</groupId>
@@ -60,14 +60,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
             </plugin>
 
             <!-- Plugin de JaCoCo para cobertura -->
@@ -89,14 +81,14 @@
                         </goals>
                         <configuration>
                             <formats>
-                                <format>XML</format>
+                                <format>xml</format>
                             </formats>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- Plugin de SonarQube -->
+            <!-- Plugin SonarQube (opcional) -->
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>
@@ -105,14 +97,4 @@
         </plugins>
     </build>
 
-    <repositories>
-        <repository>
-            <id>spring-milestones</id>
-            <name>Spring Milestones</name>
-            <url>https://repo.spring.io/milestone</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 </project>
