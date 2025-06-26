@@ -1,24 +1,26 @@
-name: CI/CD with SonarQube and Docker
+# .github/workflows/main.yml
+# 🚀 CI/CD con SonarQube y Docker para Spring Boot
+
+name: Deploy with SonarQube and Docker
 
 on:
   push:
-    branches: [ "main" ]  # Cambia a "master" si es tu rama principal
+    branches: ["main"]
   workflow_dispatch:
 
 env:
-  SONAR_PROJECT_KEY: micro-product
-  SONAR_HOST_URL: http://localhost:9000  # Cambia si usas Sonar en otro host
-  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  DOCKER_IMAGE_NAME: yolibueno/micro-product
-  DOCKER_TAG: latest
+  DOCKER_PROJECT_NAME: 'ecomapp'
+  APP_CONTAINER_NAME: 'product_app'
+  SONAR_HOST_URL: 'http://localhost:9000'
+  SONAR_PROJECT_KEY: 'examen'
 
 jobs:
-  build-sonar-docker:
+  build-and-analyze:
+    name: Build, Analyze and Deploy
     runs-on: self-hosted
 
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 Checkout Code
         uses: actions/checkout@v4
 
       - name: ☕ Set up JDK 17
@@ -28,20 +30,20 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: 📊 Analyze with SonarQube
+      - name: ✅ Test and Coverage
+        run: mvn clean verify
+
+      - name: 🔍 SonarQube Analysis
+        run: mvn sonar:sonar \
+          -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
+          -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+      - name: 🐳 Deploy with Docker Compose
         run: |
-          mvn clean verify sonar:sonar \
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ env.SONAR_TOKEN }}
-
-      - name: 🛠️ Build JAR
-        run: mvn package -DskipTests
-
-      - name: 🐳 Build Docker image
-        run: docker build -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} -f docker/Dockerfile .
-
-      - name: 📤 Push Docker image
-        run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker push ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
+          echo "✅ Iniciando despliegue local..."
+          cd docker
+          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} down -v --remove-orphans || echo "⚠️ No se encontró un despliegue anterior."
+          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} up -d --build
+          echo "✅ Contenedores levantados"
+          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} ps
