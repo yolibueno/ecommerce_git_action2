@@ -1,24 +1,21 @@
-name: CI/CD with SonarQube and Docker
+name: Deploy Locally with Self-Hosted Runner
 
 on:
   push:
-    branches: [ "main" ]  # Cambia a "master" si es tu rama principal
-  workflow_dispatch:
+    branches: [ "master" ]
+  workflow_dispatch:  # Permite ejecutarlo manualmente desde GitHub
 
 env:
-  SONAR_PROJECT_KEY: micro-product
-  SONAR_HOST_URL: http://localhost:9000  # Cambia si usas Sonar en otro host
-  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  DOCKER_IMAGE_NAME: yolibueno/micro-product
-  DOCKER_TAG: latest
+  DOCKER_PROJECT_NAME: 'ecomapp'
+  APP_CONTAINER_NAME: 'product_app'
 
 jobs:
-  build-sonar-docker:
+  build-and-deploy:
+    name: Build and Deploy Locally
     runs-on: self-hosted
 
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
       - name: ☕ Set up JDK 17
@@ -28,20 +25,25 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: 📊 Analyze with SonarQube
+      - name: ⚙️ Build with Maven
+        run: mvn -B clean package -DskipTests
+
+      - name: 🐳 Deploy with Docker Compose
         run: |
-          mvn clean verify sonar:sonar \
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ env.SONAR_TOKEN }}
+          echo "✅ Iniciando despliegue local..."
 
-      - name: 🛠️ Build JAR
-        run: mvn package -DskipTests
+          cd docker
 
-      - name: 🐳 Build Docker image
-        run: docker build -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} -f docker/Dockerfile .
+          echo "🧹 Limpiando despliegue anterior..."
+          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} down -v --remove-orphans || echo "⚠️ No había despliegue anterior."
 
-      - name: 📤 Push Docker image
-        run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker push ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
+          echo "🏗️ Construyendo y levantando los contenedores..."
+          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} up -d --build
+
+          echo "🔍 Verificando estado de los contenedores..."
+          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} ps
+
+          echo "📄 Últimos logs de la aplicación:"
+          docker logs --tail 100 ${{ env.APP_CONTAINER_NAME }}
+
+          echo "✅ Despliegue completado exitosamente 🎉"
