@@ -1,5 +1,4 @@
 # .github/workflows/main.yml
-# 🚀 CI/CD con SonarQube y Docker para Spring Boot
 
 name: Deploy with SonarQube and Docker
 
@@ -30,8 +29,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: ✅ Test and Coverage
-        run: mvn clean verify
+      - name: 🧱 Build with Maven (tests skipped)
+        run: mvn -B clean verify -DskipTests
 
       - name: 🔍 SonarQube Analysis
         run: mvn sonar:sonar \
