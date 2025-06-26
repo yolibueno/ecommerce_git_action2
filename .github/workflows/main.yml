@@ -1,21 +1,26 @@
-name: Deploy Locally with Self-Hosted Runner
+# .github/workflows/main.yml
+# 🚀 CI/CD con SonarQube y Docker para Spring Boot
+
+name: Deploy with SonarQube and Docker
 
 on:
   push:
-    branches: [ "master" ]
-  workflow_dispatch:  # Permite ejecutarlo manualmente desde GitHub
+    branches: ["main"]
+  workflow_dispatch:
 
 env:
   DOCKER_PROJECT_NAME: 'ecomapp'
   APP_CONTAINER_NAME: 'product_app'
+  SONAR_HOST_URL: 'http://localhost:9000'
+  SONAR_PROJECT_KEY: 'examen'
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy Locally
+  build-and-analyze:
+    name: Build, Analyze and Deploy
     runs-on: self-hosted
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout Code
         uses: actions/checkout@v4
 
       - name: ☕ Set up JDK 17
@@ -25,25 +30,20 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: ⚙️ Build with Maven
-        run: mvn -B clean package -DskipTests
+      - name: ✅ Test and Coverage
+        run: mvn clean verify
+
+      - name: 🔍 SonarQube Analysis
+        run: mvn sonar:sonar \
+          -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
+          -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
       - name: 🐳 Deploy with Docker Compose
         run: |
           echo "✅ Iniciando despliegue local..."
-
           cd docker
-
-          echo "🧹 Limpiando despliegue anterior..."
-          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} down -v --remove-orphans || echo "⚠️ No había despliegue anterior."
-
-          echo "🏗️ Construyendo y levantando los contenedores..."
+          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} down -v --remove-orphans || echo "⚠️ No se encontró un despliegue anterior."
           docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} up -d --build
-
-          echo "🔍 Verificando estado de los contenedores..."
+          echo "✅ Contenedores levantados"
           docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} ps
-
-          echo "📄 Últimos logs de la aplicación:"
-          docker logs --tail 100 ${{ env.APP_CONTAINER_NAME }}
-
-          echo "✅ Despliegue completado exitosamente 🎉"
