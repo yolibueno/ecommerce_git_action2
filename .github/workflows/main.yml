@@ -1,21 +1,24 @@
-name: Deploy Locally with Self-Hosted Runner
+name: CI/CD with SonarQube and Docker
 
 on:
   push:
-    branches: [ "master" ]
-  workflow_dispatch:  # Permite ejecutarlo manualmente desde GitHub
+    branches: [ "main" ]  # Cambia a "master" si es tu rama principal
+  workflow_dispatch:
 
 env:
-  DOCKER_PROJECT_NAME: 'ecomapp'
-  APP_CONTAINER_NAME: 'product_app'
+  SONAR_PROJECT_KEY: micro-product
+  SONAR_HOST_URL: http://localhost:9000  # Cambia si usas Sonar en otro host
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  DOCKER_IMAGE_NAME: yolibueno/micro-product
+  DOCKER_TAG: latest
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy Locally
+  build-sonar-docker:
     runs-on: self-hosted
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
       - name: ☕ Set up JDK 17
@@ -25,25 +28,20 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: ⚙️ Build with Maven
-        run: mvn -B clean package -DskipTests
-
-      - name: 🐳 Deploy with Docker Compose
+      - name: 📊 Analyze with SonarQube
         run: |
-          echo "✅ Iniciando despliegue local..."
+          mvn clean verify sonar:sonar \
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+            -Dsonar.login=${{ env.SONAR_TOKEN }}
 
-          cd docker
+      - name: 🛠️ Build JAR
+        run: mvn package -DskipTests
 
-          echo "🧹 Limpiando despliegue anterior..."
-          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} down -v --remove-orphans || echo "⚠️ No había despliegue anterior."
+      - name: 🐳 Build Docker image
+        run: docker build -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} -f docker/Dockerfile .
 
-          echo "🏗️ Construyendo y levantando los contenedores..."
-          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} up -d --build
-
-          echo "🔍 Verificando estado de los contenedores..."
-          docker-compose -p ${{ env.DOCKER_PROJECT_NAME }} ps
-
-          echo "📄 Últimos logs de la aplicación:"
-          docker logs --tail 100 ${{ env.APP_CONTAINER_NAME }}
-
-          echo "✅ Despliegue completado exitosamente 🎉"
+      - name: 📤 Push Docker image
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker push ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
